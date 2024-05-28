@@ -15,7 +15,12 @@ add_executable(dnsTunTest test/test_main.cpp test/EchoServer.hpp test/EchoClient
 target_link_libraries(dnsTunTest dnsTun)
 
 target_include_directories(dnsTun PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 if(WIN32)
     target_link_libraries(dnsTun PRIVATE ws2_32)
+else()
+    # 查找Threads库
+    find_package(Threads REQUIRED)
+    # 链接Threads库
+    target_link_libraries(dnsTun ${CMAKE_THREAD_LIBS_INIT})
 endif()
-

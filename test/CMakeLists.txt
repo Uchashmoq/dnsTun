@@ -15,4 +15,9 @@ target_link_libraries(dnsTunTest dnsTun)
 
 if(WIN32)
     target_link_libraries(dnsTun PRIVATE ws2_32)
+else()
+    # 查找Threads库
+    find_package(Threads REQUIRED)
+    # 链接Threads库
+    target_link_libraries(dnsTun ${CMAKE_THREAD_LIBS_INIT})
 endif()
