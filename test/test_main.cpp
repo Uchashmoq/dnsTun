@@ -39,5 +39,7 @@ void testEchoClient(){
 }
 
 int main(int argc,char** args){
-    testEchoServer(argc,args);
+    testEcho1();
+    //testEchoServer(argc,args);
+   // testEchoClient();
 }

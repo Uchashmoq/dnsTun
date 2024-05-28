@@ -18,7 +18,7 @@ int DnsClientChannel::open(int timeout) {
         return -1;
     }
     running.store(true);
-    name=std::to_string(getAddrId(localAddr))+"@"+userId;
+    name=std::to_string(sessionId)+"@"+userId;
     uploadThread=thread(std::bind(&DnsClientChannel::uploading, this));
     dispatchThread=thread(std::bind(&DnsClientChannel::dispatching, this));
     downloadThread=thread(std::bind(&DnsClientChannel::downloading, this ));
@@ -43,6 +43,8 @@ int DnsClientChannel::authenticate(int timeout) {
         Log::printf(LOG_ERROR,"authentication failure");
         return -1;
     }
+    name=std::to_string(sessionId)+"@"+userId;
+    sessionId=packetResp.sessionId;
     return 1;
 }
 
@@ -51,7 +53,7 @@ void DnsClientChannel::uploading() {
         AggregatedPacket aggregatedPacket;
         auto result=uploadBuffer.pop(aggregatedPacket);
         if(result==POP_INVALID) break;
-        auto group = disaggregateToQueryPacketGroup(aggregatedPacket, channelGroupId, randRecordType(),
+        auto group = disaggregateToQueryPacketGroup(aggregatedPacket, sessionId, channelGroupId, randRecordType(),
                                                     PACKET_UPLOAD, myDomain);
         if (sendGroup(group)<0) break;
         channelGroupId++;
@@ -82,12 +84,12 @@ void DnsClientChannel::dispatching() {
 
 
 void DnsClientChannel::downloading() {
-    uint16_t groupId=0, dataId=DATA_SEG_START;
+    group_id_t groupId=0, dataId=DATA_SEG_START;
     vector<Packet> packets;
     while (running.load()){
         DNS_POLL:
         Dns dnsPoll; Packet packetPoll;
-        Packet::poll(dnsPoll,packetPoll,myDomain,groupId,dataId);
+        Packet::poll(dnsPoll, packetPoll, myDomain, sessionId, groupId, dataId);
         if (sendDnsQuery(dnsPoll)<0){
             break;
         }

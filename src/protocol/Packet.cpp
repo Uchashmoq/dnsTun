@@ -119,29 +119,36 @@ static ssize_t getPayloadFromAdditional(BytesWriter& bw,const vector<Additional>
 }
 
 static void writePacketHead(BytesWriter& bw,const Packet& packet){
+    bw.writeNum(packet.sessionId);
     bw.writeNum(packet.groupId);
     bw.writeNum(packet.dataId);
     bw.writeNum(packet.type);
 }
 
 static int readPacketHead(Packet& packet,BytesReader& br){
-    if(br.readableBytes()<sizeof(uint16_t)){
+    if(br.readableBytes()<sizeof(session_id_t)){
+        Log::printf(LOG_DEBUG,"readPacketHead: payload session id missing");
+        return -1;
+    }
+    packet.sessionId=br.readNum<session_id_t>();
+
+    if(br.readableBytes()<sizeof(group_id_t)){
         Log::printf(LOG_DEBUG,"readPacketHead: payload group id missing");
         return -1;
     }
-    packet.groupId=br.readNum<uint16_t>();
+    packet.groupId=br.readNum<group_id_t>();
 
-    if(br.readableBytes()<sizeof(uint16_t)){
+    if(br.readableBytes()<sizeof(data_id_t)){
         Log::printf(LOG_DEBUG,"readPacketHead: payload data id missing");
         return -1;
     }
-    packet.dataId=br.readNum<uint16_t>();
+    packet.dataId=br.readNum<data_id_t>();
 
-    if(br.readableBytes()<sizeof(uint8_t)){
+    if(br.readableBytes()<sizeof(packet_type_t)){
         Log::printf(LOG_DEBUG,"readPacketHead: payload type missing");
         return -1;
     }
-    packet.type=br.readNum<uint8_t>();
+    packet.type=br.readNum<packet_type_t>();
     return 0;
 }
 
@@ -185,9 +192,7 @@ static uint8_t randLabelSize(){
 }
 
 record_t randRecordType(){
-    uint8_t x = (uint8_t)rand();
-    static record_t arr[]={TXT,PTR,CNAME};
-    return arr[x%3];
+    return TXT;
 }
 
 static Query writeToQuery(Readable& br ,record_t qType,const vector<Bytes>& domain,uint8_t cnt){
@@ -388,12 +393,14 @@ std::string Packet::toString() const {
 
 size_t
 Packet::dataToSingleQuery(Dns &dns, Packet &packet, BytesReader &br, uint16_t dnsTransactionId, record_t dnsQueryType,
-                          uint16_t groupId, uint16_t dataId, uint8_t type, const vector<Bytes> &myDomain) {
+                          session_id_t sessionId, group_id_t groupId, data_id_t dataId, packet_type_t type,
+                          const vector<Bytes> &myDomain) {
     dns.transactionId=dnsTransactionId;
     dns.setFlag(QR_MASK,DNS_QUERY);
     dns.setFlag(RD_MASK,1);
 
     packet.dnsTransactionId=dnsTransactionId;
+    packet.sessionId=sessionId;
     packet.groupId=groupId;
     packet.dataId=dataId;
     packet.type=type;
@@ -417,11 +424,14 @@ Packet::dataToSingleQuery(Dns &dns, Packet &packet, BytesReader &br, uint16_t dn
 
 int Packet::authentication(Dns &dns, Packet &packet, const char *userId, const vector<Bytes> &myDomain) {
     BytesReader br(userId);
-    Packet::dataToSingleQuery(dns, packet, br, ::rand(), randRecordType(), 0, 0, PACKET_AUTHENTICATE, myDomain);
+    Packet::dataToSingleQuery(dns, packet, br, ::rand(), randRecordType(), 0, 0, 0, PACKET_AUTHENTICATE, myDomain);
     return br.readableBytes()==0 ? 1 : -1;
 }
 
-void Packet::poll(Dns &dns, Packet &packet, const vector<Bytes> &myDomain, uint16_t groupId, uint16_t dataId) {
+void
+Packet::poll(Dns &dns, Packet &packet, const std::vector<Bytes> &myDomain, session_id_t sessionId, group_id_t groupId,
+             data_id_t dataId) {
+    packet.sessionId=sessionId;
     packet.groupId=groupId;
     packet.dataId=dataId;
     packet.type=PACKET_POLL;
@@ -429,8 +439,9 @@ void Packet::poll(Dns &dns, Packet &packet, const vector<Bytes> &myDomain, uint1
     Packet::packetToDnsQuery(dns,::rand(),packet,myDomain);
 }
 
-Packet Packet::getResponsePacket(packet_t type, uint16_t groupId, uint16_t dataId) const {
+Packet Packet::getResponsePacket(packet_t type, group_id_t groupId, data_id_t dataId) const {
     Packet packet;
+    packet.source=source;
     packet.type=type;
     packet.groupId=groupId;
     packet.dataId=dataId;
@@ -445,8 +456,9 @@ Packet Packet::getResponsePacket(packet_t type) const {
 
 
 
-PacketGroup disaggregateToQueryPacketGroup(const AggregatedPacket &aggregatedPacket, uint16_t groupId, record_t recordType,
-                               uint8_t packetType, const std::vector<Bytes> &myDomain) {
+PacketGroup
+disaggregateToQueryPacketGroup(const AggregatedPacket &aggregatedPacket, session_id_t sessionId, group_id_t groupId,
+                               record_t recordType, uint8_t packetType, const std::vector<Bytes> &myDomain) {
     PacketGroup group;
     BytesReader br (aggregatedPacket.data);
     uint16_t  dataId = DATA_SEG_START;
@@ -454,12 +466,13 @@ PacketGroup disaggregateToQueryPacketGroup(const AggregatedPacket &aggregatedPac
         Dns dns;Packet packet;
         Packet::dataToSingleQuery(
                 dns, packet, br,
-                rand(), recordType, groupId, dataId++, packetType,
+                rand(), recordType, sessionId, groupId, dataId++, packetType,
                 myDomain
         );
         group.segments.emplace_back(std::move(dns),std::move(packet));
     }
     Dns endDns;Packet endPacket;
+    endPacket.sessionId=sessionId;
     endPacket.dataId=dataId;
     endPacket.groupId=groupId;
     endPacket.dnsQueryType=recordType;
