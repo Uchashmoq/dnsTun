@@ -160,9 +160,9 @@ ClientConnectionPtr ConnectionManager::get(addr_id_t id) {
 }
 
 ClientConnectionPtr ConnectionManager::accept() {
-    auto oPtr = acceptBuffer.pop();
-    if(!oPtr.has_value()) return nullptr;
-    return oPtr->lock();
+    weak_ptr<ClientConnection> ptr;
+    if(acceptBuffer.pop(ptr)!=POP_SUCCESSFULLY) return nullptr;
+    return ptr.lock();
 }
 
 ConnectionManager::~ConnectionManager() {

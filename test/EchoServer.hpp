@@ -38,5 +38,5 @@ public:
     }
 };
 
-std::mutex EchoServer::logLock=std::mutex();
+std::mutex EchoServer::logLock;
 #endif //DNSTUN_ECHOSERVER_HPP

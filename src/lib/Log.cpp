@@ -6,7 +6,7 @@ using namespace std;
 log_level_t Log::level=LOG_TRACE;
 vector<ostream*> Log::outs={&cout};
 string Log::timeFormat="[%Y-%m-%d %H:%M:%S]";
-mutex Log::lock=mutex();
+mutex Log::lock;
 static const char *levelStr(log_level_t level) {
     switch (level) {
         case LOG_TRACE:
