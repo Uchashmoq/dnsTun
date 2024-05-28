@@ -68,9 +68,12 @@ void DnsServerChannel::authenticate(const Packet &packet) {
     bool permit= false;
     bool exist = manager->exist(packet.sessionId);
     auto sessionId=packet.sessionId;
+    group_id_t groupId=0;
     if(exist){
+        Log::printf(LOG_INFO,"session id %u reconnects",sessionId);
         auto conn = manager->get(sessionId);
         permit = conn->user.id == userId;
+        groupId=conn->connGroupId;
     }else{
         permit = authenticateUser(whiteList,userId);
     }
@@ -84,6 +87,7 @@ void DnsServerChannel::authenticate(const Packet &packet) {
             manager->add(newSessionId,connPtr);
         }
         auto success = packet.getResponsePacket(PACKET_AUTHENTICATION_SUCCESS);
+        success.groupId=groupId;
         success.sessionId = exist ? sessionId : newSessionId;
         if (sendPacketResp(success, packet.source)<0) return;
     }else{

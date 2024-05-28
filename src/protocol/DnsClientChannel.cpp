@@ -44,6 +44,7 @@ int DnsClientChannel::authenticate(int timeout) {
         return -1;
     }
     name=std::to_string(sessionId)+"@"+userId;
+    channelGroupId=packetResp.groupId;
     sessionId=packetResp.sessionId;
     return 1;
 }
