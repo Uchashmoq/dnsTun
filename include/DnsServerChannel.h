@@ -17,9 +17,8 @@ struct User{
 };
 using UserWhiteList = std::map<std::string,User>;
 
-using addr_id_t = uint64_t;
 
-addr_id_t getAddrId(const SA_IN& addr);
+
 
 class DnsServerChannel;
 class ConnectionManager;
@@ -28,8 +27,7 @@ class ConnectionManager;
 class ClientConnection{
     friend class DnsServerChannel;
     int sockfd;
-    SA_IN remoteAddr;
-    addr_id_t addrId;
+    session_id_t sessionId;
     std::atomic<int>* err;
     std::weak_ptr<ConnectionManager> manager;
     std::atomic<bool> running;
@@ -39,7 +37,7 @@ class ClientConnection{
     BlockingQueue<Packet> pollBuffer;
     std::thread uploadThread;
     std::thread downloadThread;
-    uint16_t connGroupId;
+    group_id_t connGroupId;
     void stop();
     void uploading();
     void downloading();
@@ -50,10 +48,9 @@ public:
     std::string name;
     void close();
     void open();
-    ClientConnection(int sockfd_,const SA_IN& remoteAddr_,addr_id_t addrId_,const User& user_,const std::shared_ptr<ConnectionManager>& manager_,std::atomic<int>* err_):
-    sockfd(sockfd_), remoteAddr(remoteAddr_), addrId(addrId_),user(user_),manager(manager_),err(err_),connGroupId(0){
+    ClientConnection(int sockfd_,session_id_t sessionId_,const User& user_,const std::shared_ptr<ConnectionManager>& manager_,std::atomic<int>* err_):
+    sockfd(sockfd_), sessionId(sessionId_),user(user_),manager(manager_),err(err_),connGroupId(0){
         running.store(false);
-        name=std::to_string(addrId)+"@"+user.id;
     }
     ~ClientConnection();
     ssize_t read(void *dst, int timeout=0);
@@ -65,14 +62,15 @@ public:
 using ClientConnectionPtr = std::shared_ptr<ClientConnection>;
 class ConnectionManager{
     std::mutex lock;
-    std::map<addr_id_t,ClientConnectionPtr> conns;
+    std::map<session_id_t,ClientConnectionPtr> conns;
     BlockingQueue<std::weak_ptr<ClientConnection>> acceptBuffer;
 public:
-    bool exist(addr_id_t id);
-    void remove(addr_id_t id);
-    void add(addr_id_t id, const ClientConnectionPtr &ptr);
+    session_id_t sessionIdGen();
+    bool exist(session_id_t id);
+    void remove(session_id_t id);
+    void add(session_id_t id, const ClientConnectionPtr &ptr);
     ClientConnectionPtr accept();
-    ClientConnectionPtr get(addr_id_t id);
+    ClientConnectionPtr get(session_id_t id);
     ~ConnectionManager();
 };
 
@@ -86,10 +84,10 @@ class DnsServerChannel {
     std::atomic<int> err;
 
     std::thread dispatchThread;
-    int recvPacketQuery(Packet &packet, Dns &dns, SA_IN *addr= nullptr);
+    int recvPacketQuery(Packet &packet, Dns &dns);
     int sendPacketResp(const Packet &packet, const SA_IN &addr);
     void dispatching();
-    void authenticate(const Packet &packet, const SA_IN &addr);
+    void authenticate(const Packet &packet);
 public:
     DnsServerChannel(SA_IN& localAddr_,const char*myDomain_,const UserWhiteList& whiteList_):
             localAddr(localAddr_),whiteList(whiteList_),myDomain(cstrToDomain(myDomain_)){

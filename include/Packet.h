@@ -22,14 +22,22 @@ enum packet_t {
 };
 
 #define DATA_SEG_START 0
+
+using session_id_t = uint16_t;
+using group_id_t = uint16_t;
+using data_id_t = uint16_t;
+using packet_type_t=uint8_t;
+
 struct Packet {
-    Packet():dnsTransactionId(0),groupId(0),dataId(0),type(0),qr(0),dnsQueryType(TXT){}
+    Packet():dnsTransactionId(0),sessionId(0),groupId(0),dataId(0),type(0),qr(0), source(ADDR_ZERO),dnsQueryType(TXT){}
     uint16_t dnsTransactionId;
     record_t dnsQueryType;
-    uint16_t groupId;
-    uint16_t dataId;
-    uint8_t type;
+    session_id_t sessionId;
+    group_id_t groupId;
+    data_id_t dataId;
+    packet_type_t type;
     uint8_t qr;
+    SA_IN source;
     std::vector<Query> originalQueries;
     Bytes data;
     static int dnsRespToPacket(Packet& packet,const Dns& dns);
@@ -38,11 +46,14 @@ struct Packet {
     static int packetToDnsQuery(Dns &dns, uint16_t transactionId,const Packet &packet , const std::vector<Bytes>& myDomain);
     static size_t
     dataToSingleQuery(Dns &dns, Packet &packet, BytesReader &br, uint16_t dnsTransactionId, record_t dnsQueryType,
-                      uint16_t groupId, uint16_t dataId, uint8_t type, const std::vector<Bytes> &myDomain);
+                      session_id_t sessionId, group_id_t groupId, data_id_t dataId, packet_type_t type,
+                      const std::vector<Bytes> &myDomain);
     std::string toString() const;
     static int authentication(Dns &dns, Packet &packet, const char *userId, const std::vector<Bytes> &myDomain);
-    static void poll(Dns &dns, Packet &packet, const std::vector<Bytes> &myDomain, uint16_t groupId=0, uint16_t dataId=0);
-    Packet getResponsePacket(packet_t type, uint16_t groupId, uint16_t dataId) const ;
+    static void
+    poll(Dns &dns, Packet &packet, const std::vector<Bytes> &myDomain, session_id_t sessionId, group_id_t groupId = 0,
+         data_id_t dataId = 0);
+    Packet getResponsePacket(packet_t type, group_id_t groupId, data_id_t dataId) const ;
     Packet getResponsePacket(packet_t type) const ;
 private:
     static const size_t BUF_SIZE;
@@ -62,13 +73,14 @@ struct DataSegment{
 
 struct PacketGroup {
     std::vector<DataSegment> segments;
-    uint16_t groupId;
-    PacketGroup(uint16_t groupId_=0){groupId=groupId_;}
+    group_id_t groupId;
+    PacketGroup(group_id_t groupId_=0){groupId=groupId_;}
 };
 
 
-PacketGroup disaggregateToQueryPacketGroup(const AggregatedPacket &aggregatedPacket, uint16_t groupId, record_t recordType,
-                               uint8_t packetType, const std::vector<Bytes> &myDomain);
+PacketGroup
+disaggregateToQueryPacketGroup(const AggregatedPacket &aggregatedPacket, session_id_t sessionId, group_id_t groupId,
+                               record_t recordType, uint8_t packetType, const std::vector<Bytes> &myDomain);
 
 record_t randRecordType();
 #endif

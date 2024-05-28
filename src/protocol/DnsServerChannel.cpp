@@ -4,10 +4,11 @@
 #include <functional>
 #include "packetProcess.h"
 using namespace std;
-int DnsServerChannel::recvPacketQuery(Packet &packet, Dns &dns, SA_IN *addr) {
+int DnsServerChannel::recvPacketQuery(Packet &packet, Dns &dns) {
     if(!running.load() || err.load() == DSCE_NETWORK_ERR) return -1;
     char buf[6*1024];
-    auto n= recvfromUdp(sockfd,buf, sizeof(buf),addr);
+    SA_IN source;
+    auto n= recvfromUdp(sockfd,buf, sizeof(buf), &source);
     if ( n<0 ){
         if(running.load()) Log::printf(LOG_ERROR,getLastErrorMessage().c_str());
         err.store(DSCE_NETWORK_ERR);
@@ -19,6 +20,8 @@ int DnsServerChannel::recvPacketQuery(Packet &packet, Dns &dns, SA_IN *addr) {
     if(Packet::dnsQueryToPacket(packet,dns,myDomain)<0){
         return -1;
     }
+    dns.source=source;
+    packet.source=source;
     return 1;
 }
 
@@ -27,17 +30,16 @@ void DnsServerChannel::dispatching() {
     while(running.load()){
         Packet packet;
         Dns dns;
-        SA_IN addr;
-        if (recvPacketQuery(packet, dns, &addr) < 0){
+        if (recvPacketQuery(packet, dns) < 0){
             if(err.load()==DSCE_NETWORK_ERR) break;
             else continue;
         }
         if(packet.type==PACKET_AUTHENTICATE){
-            authenticate(packet, addr);
+            authenticate(packet);
         }else {
-            addr_id_t addrId =getAddrId(addr);
-            if(manager->exist(addrId)) {
-                auto connPtr = manager->get(addrId);
+            session_id_t sessionId =packet.sessionId;
+            if(manager->exist(sessionId)) {
+                auto connPtr = manager->get(sessionId);
                 if(connPtr->running.load()){
                     switch (packet.type) {
                         case PACKET_POLL:
@@ -61,31 +63,32 @@ static bool authenticateUser(const UserWhiteList& whiteList,const string& userId
     return whiteList.count(userId)>0;
 }
 
-void DnsServerChannel::authenticate(const Packet &packet, const SA_IN &addr) {
+void DnsServerChannel::authenticate(const Packet &packet) {
     string userId = packet.data;
     bool permit= false;
-    addr_id_t addrId = getAddrId(addr);
-    bool exist = manager->exist(addrId);
-
+    bool exist = manager->exist(packet.sessionId);
+    auto sessionId=packet.sessionId;
     if(exist){
-        auto conn = manager->get(addrId);
+        auto conn = manager->get(sessionId);
         permit = conn->user.id == userId;
     }else{
         permit = authenticateUser(whiteList,userId);
     }
 
     if(permit){
+        auto newSessionId = manager->sessionIdGen();
         if(!exist){
             User newUser = {userId};
-            auto connPtr = make_shared<ClientConnection>(sockfd,addr,addrId,newUser,manager,&err);
+            auto connPtr = make_shared<ClientConnection>(sockfd,newSessionId,newUser,manager,&err);
             connPtr->open();
-            manager->add(addrId,connPtr);
+            manager->add(newSessionId,connPtr);
         }
         auto success = packet.getResponsePacket(PACKET_AUTHENTICATION_SUCCESS);
-        if (sendPacketResp(success, addr)<0) return;
+        success.sessionId = exist ? sessionId : newSessionId;
+        if (sendPacketResp(success, packet.source)<0) return;
     }else{
         auto failure = packet.getResponsePacket(PACKET_AUTHENTICATION_FAILURE);
-        sendPacketResp(failure,addr);
+        sendPacketResp(failure,packet.source);
     }
 }
 
@@ -128,33 +131,33 @@ void DnsServerChannel::close() {
 }
 
 
-addr_id_t getAddrId(const SA_IN &addr) {
+session_id_t getsessionId(const SA_IN &addr) {
     const static auto ipSize = sizeof(addr.sin_addr.s_addr);
-    addr_id_t id=0;
+    session_id_t id=0;
     id |= addr.sin_addr.s_addr;
     id <<= ipSize;
     id |= addr.sin_port;
     return id;
 }
 
-void ConnectionManager::add(addr_id_t id, const ClientConnectionPtr &ptr) {
+void ConnectionManager::add(session_id_t id, const ClientConnectionPtr &ptr) {
     lock.lock();
     conns.insert(make_pair(id , ptr));
     lock.unlock();
     acceptBuffer.push(ptr);
 }
 
-void ConnectionManager::remove(addr_id_t id) {
+void ConnectionManager::remove(session_id_t id) {
     lock_guard<mutex> guard(lock);
     conns.erase(id);
 }
 
-bool ConnectionManager::exist(addr_id_t id) {
+bool ConnectionManager::exist(session_id_t id) {
     lock_guard<mutex> guard(lock);
     return conns.count(id);
 }
 
-ClientConnectionPtr ConnectionManager::get(addr_id_t id) {
+ClientConnectionPtr ConnectionManager::get(session_id_t id) {
     lock_guard<mutex> guard(lock);
     return conns[id];
 }
@@ -169,16 +172,23 @@ ConnectionManager::~ConnectionManager() {
     acceptBuffer.unblock();
 }
 
+session_id_t ConnectionManager::sessionIdGen() {
+    session_id_t id;
+    do{
+        id=rand();
+    } while (exist(id) || id==0);
+    return id;
+}
 
 
 void ClientConnection::close() {
     auto ptr = manager.lock();
     if(ptr){
-        if(ptr->exist(addrId)){
-            ptr->remove(addrId);
+        if(ptr->exist(sessionId)){
+            ptr->remove(sessionId);
             Log::printf(LOG_TRACE,"ClientConnection '%s' closed",name.c_str());
         }else{
-            Log::printf(LOG_WARN,"failed to remove ClientConnection from ConnectionManager : invalid addrId : %u",addrId);
+            Log::printf(LOG_WARN,"failed to remove ClientConnection from ConnectionManager : invalid sessionId : %u",sessionId);
         }
     }
 }
@@ -203,7 +213,7 @@ ClientConnection::~ClientConnection() {
 
 void ClientConnection::uploading() {
     vector<Packet> packets;
-    uint16_t groupId=0,dataId=DATA_SEG_START;
+    group_id_t groupId=0,dataId=DATA_SEG_START;
 
     while (running.load()){
         Packet packetUpload;
@@ -246,7 +256,7 @@ int ClientConnection::sendPacketResp(const Packet &packet) {
     Dns dns;
     Packet::packetToDnsResp(dns,packet.dnsTransactionId,packet);
     ssize_t n = Dns::bytes(dns, buf, sizeof(buf));
-    if (sendtoUdp(sockfd,buf,n,remoteAddr)<0){
+    if (sendtoUdp(sockfd,buf,n,packet.source)<0){
         if(running.load()) Log::printf(LOG_ERROR,getLastErrorMessage().c_str());
         err->store(DSCE_NETWORK_ERR);
         return -1;
@@ -266,7 +276,7 @@ static size_t readAggregatedPacket(BytesReader& br,Packet& packet){
 
 int ClientConnection::sendGroup(AggregatedPacket &aggregatedPacket) {
     BytesReader br(aggregatedPacket.data);
-    uint16_t groupId = connGroupId , dataId = DATA_SEG_START;
+    group_id_t groupId = connGroupId , dataId = DATA_SEG_START;
     vector<Packet> temp;
     while (running.load()){
         Packet packetPoll;
@@ -297,6 +307,7 @@ void ClientConnection::open() {
         running.store(true);
         uploadThread=thread(std::bind(&ClientConnection::uploading,this));
         downloadThread=thread(std::thread(&ClientConnection::downloading , this));
+        name=std::to_string(sessionId)+"@"+user.id;
         Log::printf(LOG_TRACE,"ClientConnection '%s' opened",name.c_str());
     }
 }

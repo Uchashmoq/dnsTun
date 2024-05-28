@@ -6,7 +6,7 @@
 #include "DnsServerChannel.h"
 #include <atomic>
 #include <thread>
-#define DEFAULT_ACK_TIMEOUT 1
+#define DEFAULT_ACK_TIMEOUT 10000
 #define DEFAULT_POLL_TIMEOUT 1
 
 enum dns_client_channel_err_t{
@@ -19,6 +19,7 @@ class DnsClientChannel {
     int sockfd;
     SA_IN remoteAddr;
     SA_IN localAddr;
+    session_id_t sessionId;
     std::vector<Bytes> myDomain;
     std::string userId;
     BlockingQueue<AggregatedPacket> uploadBuffer;
@@ -27,7 +28,7 @@ class DnsClientChannel {
     BlockingQueue<AggregatedPacket> inboundBuffer;
     std::atomic<bool> running;
     std::atomic<int> err;
-    uint16_t channelGroupId;
+    group_id_t channelGroupId;
 
     std::thread uploadThread;
     std::thread dispatchThread;
@@ -45,9 +46,9 @@ public:
     int ackTimeout;
     int pollTimeout;
     DnsClientChannel(const SA_IN& remoteAddr_,SA_IN& localAddr_,const char* myDomain_,const std::string& userId_):
-            remoteAddr(remoteAddr_),localAddr(localAddr_),myDomain(cstrToDomain(myDomain_)),userId(userId_),ackTimeout(DEFAULT_ACK_TIMEOUT),pollTimeout(DEFAULT_POLL_TIMEOUT),channelGroupId(0){running.store(false),err.store(DCCE_NULL);}
+            remoteAddr(remoteAddr_),localAddr(localAddr_),myDomain(cstrToDomain(myDomain_)),userId(userId_),ackTimeout(DEFAULT_ACK_TIMEOUT),pollTimeout(DEFAULT_POLL_TIMEOUT),channelGroupId(0),sessionId(0){running.store(false),err.store(DCCE_NULL);}
     DnsClientChannel(const SA_IN& remoteAddr_,const char* myDomain_,const std::string& userId_):
-            remoteAddr(remoteAddr_),localAddr(ADDR_ZERO),myDomain(cstrToDomain(myDomain_)),userId(userId_),ackTimeout(DEFAULT_ACK_TIMEOUT),pollTimeout(DEFAULT_POLL_TIMEOUT),channelGroupId(0){running.store(false),err.store(DCCE_NULL);}
+            remoteAddr(remoteAddr_),localAddr(ADDR_ZERO),myDomain(cstrToDomain(myDomain_)),userId(userId_),ackTimeout(DEFAULT_ACK_TIMEOUT),pollTimeout(DEFAULT_POLL_TIMEOUT),channelGroupId(0),sessionId(0){running.store(false),err.store(DCCE_NULL);}
     ~DnsClientChannel();
     int open(int timeout=NO_TIMEOUT);
     void close();

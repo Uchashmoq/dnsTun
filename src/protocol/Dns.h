@@ -111,7 +111,7 @@ struct Additional{
     std::string toString() const;
 };
 struct Dns {
-    Dns() : transactionId(0),flags(0),questions(0),answerRRs(0),authorityRRs(0),additionalRRs(0){}
+    Dns() : transactionId(0),flags(0),questions(0),answerRRs(0),authorityRRs(0),additionalRRs(0), source(ADDR_ZERO){}
     //Convert binary data to dns structure
     static ssize_t resolve(Dns& dns,const void *buf, size_t size);
     //Convert dns structure to binary data
@@ -121,7 +121,7 @@ struct Dns {
     //for debugging
     std::string toString() const;
 
-
+    SA_IN source;
     uint16_t transactionId;
     uint16_t flags;
     uint16_t questions;
