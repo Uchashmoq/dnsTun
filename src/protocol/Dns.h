@@ -60,8 +60,8 @@ enum record_t {
 #define IS_IP(ty) (ty==A || ty==AAAA)
 #define IS_SUPPORTED_RECORD(t) ( t==A||t==AAAA||t==NS||t==CNAME||t==TXT||t==PTR)
 #define USE_LABEL(t) (t==NS||t==CNAME||t==TXT||t==PTR)
-#define MAX_LABEL_LEN 63
-#define MAX_TOTAL_DOMAIN_LEN 253
+#define MAX_LABEL_LEN 60
+#define MAX_TOTAL_DOMAIN_LEN 245
 #define DATA_SHOULD_APPEND0(t) (!IS_IP(t) && t!=TXT)
 class DNSResolutionException : public std::exception {
 private:

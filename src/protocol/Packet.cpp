@@ -384,9 +384,16 @@ int Packet::dnsQueryToPacket(Packet &packet, const Dns &dns, const vector<Bytes>
 
 std::string Packet::toString() const {
     stringstream ss;
+    ss<<"sessionId: "<<sessionId<<endl;
     ss<<"groupId: "<<groupId<<endl;
     ss<<"dataId: "<<dataId<<endl;
-    ss<<"type: "<<type<<endl;
+    ss<<"type: "<<(int)type<<endl;
+    if(originalQueries.size()>0){
+        cout<<"original queries from "<<sockaddr_inStr(source)<<": "<<endl;
+        for(const auto & q : originalQueries){
+            cout<<q.toString()<<endl;
+        }
+    }
     ss<<"data: "<<data.hexStr()<<endl;
     return ss.str();
 }

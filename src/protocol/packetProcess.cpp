@@ -18,11 +18,11 @@ void newPacketGroup(uint16_t& groupId, uint16_t& dataId, Packet& packetDown, std
 
 bool verifyPacket(const Packet& packetResp , group_id_t groupId ,data_id_t dataId){
     if(packetResp.groupId!=groupId){
-        Log::printf(LOG_ERROR, "unexpected group id ,got %u,expected %u",packetResp.groupId,groupId);
+        Log::printf(LOG_ERROR, "unexpected group id ,got %u,expected %u\n%s",packetResp.groupId,groupId,packetResp.toString().c_str());
         return false;
     }
     if(packetResp.dataId!=dataId){
-        Log::printf(LOG_DEBUG,"received packet ,data id : %u ",packetResp.dataId);
+        Log::printf(LOG_DEBUG,"received packet ,data id : %u \n%s",packetResp.dataId,packetResp.toString().c_str());
         return false;
     }
     return true;

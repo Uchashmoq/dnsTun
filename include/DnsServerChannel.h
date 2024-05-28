@@ -23,7 +23,7 @@ using UserWhiteList = std::map<std::string,User>;
 class DnsServerChannel;
 class ConnectionManager;
 
-#define MAX_RESPONSE_DATA_LEN 100
+#define MAX_RESPONSE_DATA_LEN 85
 class ClientConnection{
     friend class DnsServerChannel;
     int sockfd;
