@@ -61,6 +61,8 @@ public:
     ssize_t write(const Bytes& src);
 
     void handleIdle();
+
+    void closeBuffer();
 };
 
 using ClientConnectionPtr = std::shared_ptr<ClientConnection>;

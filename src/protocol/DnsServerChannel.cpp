@@ -188,9 +188,7 @@ void ClientConnection::close() {
 void ClientConnection::stop() {
     if(running.load()){
         running.store(false);
-        downloadBuffer.unblock();
-        uploadBuffer.unblock();
-        pollBuffer.unblock();
+        closeBuffer();
         downloadThread.join();
         uploadThread.join();
         Log::printf(LOG_TRACE,"ClientConnection '%s' stopped",name.c_str());
@@ -376,5 +374,12 @@ ssize_t ClientConnection::write(const Bytes &src) {
 
 void ClientConnection::handleIdle() {
     Log::printf(LOG_INFO,"ClientConnection '%s' is idle",name.c_str());
+    closeBuffer();
     close();
+}
+
+void ClientConnection::closeBuffer() {
+    downloadBuffer.unblock();
+    uploadBuffer.unblock();
+    pollBuffer.unblock();
 }
