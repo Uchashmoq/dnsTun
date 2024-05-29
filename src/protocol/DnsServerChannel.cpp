@@ -249,7 +249,7 @@ void ClientConnection::downloading() {
 }
 
 int ClientConnection::sendPacketResp(const Packet &packet) {
-    if(err->load()==DSCE_NETWORK_ERR ) return -1;
+    if(!noConnErr()) return -1;
     char buf[4096];
     Dns dns;
     Packet::packetToDnsResp(dns,packet.dnsTransactionId,packet);
@@ -315,8 +315,8 @@ ssize_t ClientConnection::read(void *dst, int timeout) {
         Log::printf(LOG_ERROR,"writing data to a closed ClientConnection");
         return -1;
     }
-    int e=err->load();
-    if(e==DSCE_NETWORK_ERR){
+
+    if(!noConnErr()){
         return -1;
     }
     AggregatedPacket packet;
@@ -332,8 +332,8 @@ ssize_t ClientConnection::write(const void *src, size_t len) {
         Log::printf(LOG_ERROR,"writing data to a closed DnsClientChannel");
         return -1;
     }
-    int e=err->load();
-    if(e==DSCE_NETWORK_ERR){
+
+    if(!noConnErr()){
         return -1;
     }
     AggregatedPacket aggregatedPacket={Bytes(src,len)};
@@ -346,8 +346,7 @@ ssize_t ClientConnection::read(Bytes &dst, int timeout) {
         Log::printf(LOG_ERROR,"writing data to a closed ClientConnection");
         return -1;
     }
-    int e=err->load();
-    if(e==DSCE_NETWORK_ERR){
+    if(!noConnErr()){
         return -1;
     }
     AggregatedPacket packet;
@@ -363,8 +362,8 @@ ssize_t ClientConnection::write(const Bytes &src) {
         Log::printf(LOG_ERROR,"writing data to a closed DnsClientChannel");
         return -1;
     }
-    int e=err->load();
-    if(e==DSCE_NETWORK_ERR){
+
+    if(!noConnErr()){
         return -1;
     }
     AggregatedPacket aggregatedPacket={src};
@@ -374,6 +373,7 @@ ssize_t ClientConnection::write(const Bytes &src) {
 
 void ClientConnection::handleIdle() {
     Log::printf(LOG_INFO,"ClientConnection '%s' is idle",name.c_str());
+    connErr.store(CCE_IDLE);
     closeBuffer();
     close();
 }
@@ -382,4 +382,9 @@ void ClientConnection::closeBuffer() {
     downloadBuffer.unblock();
     uploadBuffer.unblock();
     pollBuffer.unblock();
+    inboundBuffer.unblock();
+}
+
+bool ClientConnection::noConnErr() {
+    return !(err->load()==DSCE_NETWORK_ERR || connErr.load()==CCE_IDLE);
 }

@@ -12,13 +12,15 @@ enum dns_server_channel_err_t{
     DSCE_NETWORK_ERR,
 };
 
+enum client_connection_err_t{
+    CCE_NULL,
+    CCE_IDLE
+};
+
 struct User{
     std::string id;
 };
 using UserWhiteList = std::map<std::string,User>;
-
-
-
 
 class DnsServerChannel;
 class ConnectionManager;
@@ -30,6 +32,7 @@ class ClientConnection{
     int sockfd;
     session_id_t sessionId;
     std::atomic<int>* err;
+    std::atomic<int> connErr;
     std::weak_ptr<ConnectionManager> manager;
     std::atomic<bool> running;
     BlockingQueue<AggregatedPacket> inboundBuffer;
@@ -52,16 +55,16 @@ public:
     void open();
     ClientConnection(int sockfd_,session_id_t sessionId_,const User& user_,const std::shared_ptr<ConnectionManager>& manager_,std::atomic<int>* err_):
     sockfd(sockfd_), sessionId(sessionId_),user(user_),manager(manager_),err(err_),connGroupId(0),idleTimeout(DEFAULT_CLIENT_IDLE_TIMEOUT){
+        connErr.store(CCE_NULL);
         running.store(false);
     }
     ~ClientConnection();
+    bool noConnErr();
     ssize_t read(void *dst, int timeout=0);
     ssize_t write(const void* src,size_t len);
     ssize_t read(Bytes& dst,int timeout=0);
     ssize_t write(const Bytes& src);
-
     void handleIdle();
-
     void closeBuffer();
 };
 

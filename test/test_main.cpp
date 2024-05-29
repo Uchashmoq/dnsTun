@@ -17,12 +17,12 @@ void testEcho1(){
     s.detach();
     EchoClient client(addr,myDom,userId);
     client.launch();
-    Sleep(7*1000);
+    this_thread::sleep_for(chrono::seconds(7));
 }
 #define SET_ARG(arg,i) if(argc>i) arg=args[i]
 
 void testEchoServer(int argc,char** args){
-    char * serverIp="0.0.0.0",*myDom="tun.k72vb42ffx.xyz",*port="53";
+    auto * serverIp="0.0.0.0",*myDom="tun.k72vb42ffx.xyz",*port="5354";
     SET_ARG(serverIp,1);
     SET_ARG(port,2);
     SET_ARG(myDom,3);
@@ -41,6 +41,6 @@ void testEchoClient(){
 
 int main(int argc,char** args){
     //testEcho1();
-    //testEchoServer(argc,args);
-    testEchoClient();
+    testEchoServer(argc,args);
+    //testEchoClient();
 }
