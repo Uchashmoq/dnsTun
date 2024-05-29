@@ -36,64 +36,59 @@ void DnsServerChannel::dispatching() {
         }
         if(packet.type==PACKET_AUTHENTICATE){
             authenticate(packet);
-        }else {
-            session_id_t sessionId =packet.sessionId;
-            if(manager->exist(sessionId)) {
-                auto connPtr = manager->get(sessionId);
-                if(connPtr->running.load()){
-                    switch (packet.type) {
-                        case PACKET_POLL:
-                            connPtr->pollBuffer.push(std::move(packet));
-                            break;
-                        case PACKET_UPLOAD:
-                        case PACKET_GROUP_END:
-                            connPtr->uploadBuffer.push(std::move(packet));
-                            break;
-                        default:
-                            Log::printf(LOG_ERROR, "packet with unexpected type : %s", packet.toString().c_str());
-                    }
-                }
+            continue;
+        }
+        session_id_t sessionId =packet.sessionId;
+        if(!manager->exist(sessionId)) {
+            auto packetErr = packet.getResponsePacket(PACKET_SESSION_NOT_FOUND);
+            sendPacketResp(packetErr);
+            continue;
+        }
+
+        auto connPtr = manager->get(sessionId);
+        if(connPtr->running.load()){
+            switch (packet.type) {
+                case PACKET_POLL:
+                    connPtr->pollBuffer.push(std::move(packet));
+                    break;
+                case PACKET_UPLOAD:
+                case PACKET_GROUP_END:
+                    connPtr->uploadBuffer.push(std::move(packet));
+                    break;
+                default:
+                    auto packetErr = packet.getResponsePacket(PACKET_INVALID_TYPE);
+                    sendPacketResp(packetErr);
+                    Log::printf(LOG_ERROR, "packet with unexpected type : %s", packet.toString().c_str());
             }
+        }else{
+            auto packetErr = packet.getResponsePacket(PACKET_SESSION_CLOSED);
+            sendPacketResp(packetErr);
         }
     }
 }
 
-static bool authenticateUser(const UserWhiteList& whiteList,const string& userId){
-    if(whiteList.empty()) return true;
-    return whiteList.count(userId)>0;
-}
 
 void DnsServerChannel::authenticate(const Packet &packet) {
     string userId = packet.data;
-    bool permit= false;
-    bool exist = manager->exist(packet.sessionId);
-    auto sessionId=packet.sessionId;
-    group_id_t groupId=0;
-    if(exist){
-        Log::printf(LOG_INFO,"session id %u reconnects",sessionId);
-        auto conn = manager->get(sessionId);
-        permit = conn->user.id == userId;
-        groupId=conn->connGroupId;
-    }else{
-        permit = authenticateUser(whiteList,userId);
+    auto sessionId = packet.sessionId;
+    if(manager->exist(sessionId)){
+        auto failure = packet.getResponsePacket(PACKET_AUTHENTICATION_FAILURE);
+        Log::printf(LOG_DEBUG,"replicated authentication packet , session id : %u,user id : %s",sessionId,userId.c_str());
+        if (sendPacketResp(failure)<0) return;
+    }
+    if(!authenticateUserId(userId)){
+        auto failure = packet.getResponsePacket(PACKET_AUTHENTICATION_FAILURE);
+        Log::printf(LOG_INFO,"authentication  failure session id : %u,user id : %s",sessionId,userId.c_str());
+        if (sendPacketResp(failure)<0) return;
     }
 
-    if(permit){
-        auto newSessionId = manager->sessionIdGen();
-        if(!exist){
-            User newUser = {userId};
-            auto connPtr = make_shared<ClientConnection>(sockfd,newSessionId,newUser,manager,&err);
-            connPtr->open();
-            manager->add(newSessionId,connPtr);
-        }
-        auto success = packet.getResponsePacket(PACKET_AUTHENTICATION_SUCCESS);
-        success.groupId=groupId;
-        success.sessionId = exist ? sessionId : newSessionId;
-        if (sendPacketResp(success, packet.source)<0) return;
-    }else{
-        auto failure = packet.getResponsePacket(PACKET_AUTHENTICATION_FAILURE);
-        sendPacketResp(failure,packet.source);
-    }
+    User newUser = {userId};
+    auto connPtr = make_shared<ClientConnection>(sockfd,sessionId,newUser,manager,&err);
+    connPtr->open();
+    manager->add(sessionId,connPtr);
+    auto success = packet.getResponsePacket(PACKET_AUTHENTICATION_SUCCESS);
+    success.sessionId=sessionId;
+    if (sendPacketResp(success)<0) return;
 }
 
 int DnsServerChannel::sendPacketResp(const Packet &packet, const SA_IN &addr) {
@@ -134,15 +129,15 @@ void DnsServerChannel::close() {
     }
 }
 
-
-session_id_t getsessionId(const SA_IN &addr) {
-    const static auto ipSize = sizeof(addr.sin_addr.s_addr);
-    session_id_t id=0;
-    id |= addr.sin_addr.s_addr;
-    id <<= ipSize;
-    id |= addr.sin_port;
-    return id;
+bool DnsServerChannel::authenticateUserId(const string &userId) {
+    if(whiteList.empty()) return true;
+    return whiteList.count(userId)>0;
 }
+
+int DnsServerChannel::sendPacketResp(const Packet &packet) {
+    return sendPacketResp(packet,packet.source);
+}
+
 
 void ConnectionManager::add(session_id_t id, const ClientConnectionPtr &ptr) {
     lock.lock();
@@ -176,13 +171,6 @@ ConnectionManager::~ConnectionManager() {
     acceptBuffer.unblock();
 }
 
-session_id_t ConnectionManager::sessionIdGen() {
-    session_id_t id;
-    do{
-        id=rand();
-    } while (exist(id) || id==0);
-    return id;
-}
 
 
 void ClientConnection::close() {
@@ -222,8 +210,11 @@ void ClientConnection::uploading() {
     while (running.load()){
         Packet packetUpload;
         if (uploadBuffer.pop(packetUpload)==POP_INVALID) break;
-        if(!verifyPacket(packetUpload,groupId,dataId)) continue;
-
+        if(!verifyPacket(packetUpload,groupId,dataId)) {
+            auto packetDiscard = packetUpload.getResponsePacket(PACKET_DISCARD);
+            sendPacketResp(packetDiscard);
+            continue;
+        }
         auto packetAck = packetUpload.getResponsePacket(PACKET_ACK);
         if(packetUpload.dataId==DATA_SEG_START){
             newPacketGroup(groupId, dataId, packetUpload, packets);
@@ -240,7 +231,12 @@ void ClientConnection::uploading() {
 void ClientConnection::downloading() {
     while (running.load()){
         Packet packetPoll;
-        if(pollBuffer.pop(packetPoll)==POP_INVALID) break;
+        auto result = pollBuffer.pop(packetPoll,idleTimeout);
+        if(result==POP_INVALID) break;
+        if(result==POP_TIMEOUT) {
+            handleIdle();
+            break;
+        }
 
         if(downloadBuffer.size()==0){
             auto packetResp = packetPoll.getResponsePacket(PACKET_DOWNLOAD_NOTHING);
@@ -376,4 +372,9 @@ ssize_t ClientConnection::write(const Bytes &src) {
     AggregatedPacket aggregatedPacket={src};
     downloadBuffer.push(std::move(aggregatedPacket));
     return src.size;
+}
+
+void ClientConnection::handleIdle() {
+    Log::printf(LOG_INFO,"ClientConnection '%s' is idle",name.c_str());
+    close();
 }

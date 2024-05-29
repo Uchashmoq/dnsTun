@@ -14,7 +14,7 @@ class EchoServer{
             std::cout<<"from ClientConnection "<<conn->name<<" : "<<(std::string)bytes<<std::endl;
             logLock.unlock();
             assert(conn->write(bytes)>0);
-            if(bytes=="stop"){
+            if(bytes=="s." ){
                 conn->close();
                 break;
             }

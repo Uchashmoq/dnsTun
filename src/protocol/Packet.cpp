@@ -431,7 +431,7 @@ Packet::dataToSingleQuery(Dns &dns, Packet &packet, BytesReader &br, uint16_t dn
 
 int Packet::authentication(Dns &dns, Packet &packet, const char *userId, const vector<Bytes> &myDomain) {
     BytesReader br(userId);
-    Packet::dataToSingleQuery(dns, packet, br, ::rand(), randRecordType(), 0, 0, 0, PACKET_AUTHENTICATE, myDomain);
+    Packet::dataToSingleQuery(dns, packet, br, ::rand(), randRecordType(), packet.sessionId, 0, 0, PACKET_AUTHENTICATE, myDomain);
     return br.readableBytes()==0 ? 1 : -1;
 }
 

@@ -24,6 +24,7 @@ class DnsServerChannel;
 class ConnectionManager;
 
 #define MAX_RESPONSE_DATA_LEN 85
+#define DEFAULT_CLIENT_IDLE_TIMEOUT 5
 class ClientConnection{
     friend class DnsServerChannel;
     int sockfd;
@@ -46,10 +47,11 @@ class ClientConnection{
 public:
     const User user;
     std::string name;
+    int idleTimeout;
     void close();
     void open();
     ClientConnection(int sockfd_,session_id_t sessionId_,const User& user_,const std::shared_ptr<ConnectionManager>& manager_,std::atomic<int>* err_):
-    sockfd(sockfd_), sessionId(sessionId_),user(user_),manager(manager_),err(err_),connGroupId(0){
+    sockfd(sockfd_), sessionId(sessionId_),user(user_),manager(manager_),err(err_),connGroupId(0),idleTimeout(DEFAULT_CLIENT_IDLE_TIMEOUT){
         running.store(false);
     }
     ~ClientConnection();
@@ -57,6 +59,8 @@ public:
     ssize_t write(const void* src,size_t len);
     ssize_t read(Bytes& dst,int timeout=0);
     ssize_t write(const Bytes& src);
+
+    void handleIdle();
 };
 
 using ClientConnectionPtr = std::shared_ptr<ClientConnection>;
@@ -65,7 +69,6 @@ class ConnectionManager{
     std::map<session_id_t,ClientConnectionPtr> conns;
     BlockingQueue<std::weak_ptr<ClientConnection>> acceptBuffer;
 public:
-    session_id_t sessionIdGen();
     bool exist(session_id_t id);
     void remove(session_id_t id);
     void add(session_id_t id, const ClientConnectionPtr &ptr);
@@ -82,15 +85,16 @@ class DnsServerChannel {
     std::vector<Bytes> myDomain;
     std::atomic<bool> running;
     std::atomic<int> err;
-
     std::thread dispatchThread;
     int recvPacketQuery(Packet &packet, Dns &dns);
     int sendPacketResp(const Packet &packet, const SA_IN &addr);
     void dispatching();
     void authenticate(const Packet &packet);
+    bool authenticateUserId(const std::string &userId);
+    int sendPacketResp(const Packet &packet);
 public:
-    DnsServerChannel(SA_IN& localAddr_,const char*myDomain_,const UserWhiteList& whiteList_):
-            localAddr(localAddr_),whiteList(whiteList_),myDomain(cstrToDomain(myDomain_)){
+    DnsServerChannel(SA_IN& localAddr_,const char*myDomain_,const UserWhiteList& whiteList_ = UserWhiteList()):
+            localAddr(localAddr_),myDomain(cstrToDomain(myDomain_)),whiteList(whiteList_){
         running.store(false),err.store(DSCE_NULL);
         manager= std::make_shared<ConnectionManager>();
     }

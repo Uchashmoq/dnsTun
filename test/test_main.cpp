@@ -17,6 +17,7 @@ void testEcho1(){
     s.detach();
     EchoClient client(addr,myDom,userId);
     client.launch();
+    Sleep(7*1000);
 }
 #define SET_ARG(arg,i) if(argc>i) arg=args[i]
 
@@ -31,6 +32,7 @@ void testEchoServer(int argc,char** args){
 }
 void testEchoClient(){
     auto myDom="tun.k72vb42ffx.xyz";
+    //auto addr= inetAddr("192.168.88.128",5354);
     auto addr= inetAddr("114.114.114.114",53);
     auto userId = "test_user";
     EchoClient client(addr,myDom,userId);
@@ -38,7 +40,7 @@ void testEchoClient(){
 }
 
 int main(int argc,char** args){
-    //testEcho1();
-    testEchoServer(argc,args);
-   // testEchoClient();
+    testEcho1();
+    //testEchoServer(argc,args);
+    //testEchoClient();
 }

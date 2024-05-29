@@ -6,13 +6,14 @@
 #include "DnsServerChannel.h"
 #include <atomic>
 #include <thread>
-#define DEFAULT_ACK_TIMEOUT 10000
+#define DEFAULT_ACK_TIMEOUT 1
 #define DEFAULT_POLL_TIMEOUT 1
 
 enum dns_client_channel_err_t{
     DCCE_NULL,
     DCCE_AUTHENTICATE_ERR,
-    DCCE_NETWORK_ERR
+    DCCE_NETWORK_ERR,
+    DCCE_PEER_CLOSED
 };
 
 class DnsClientChannel {
@@ -40,6 +41,7 @@ class DnsClientChannel {
     int sendDnsQuery(const Dns& dns);
     int recvPacketResp(Packet &packet, Dns &dnsResp, int timeout=NO_TIMEOUT);
     int sendGroup(const PacketGroup& group);
+    void closeBuffers();
 
 public:
     std::string name;
@@ -57,6 +59,7 @@ public:
     ssize_t read(Bytes& dst,int timeout=0);
     ssize_t write(const Bytes& src);
 
+    bool noConnErr();
 };
 
 

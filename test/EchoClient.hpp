@@ -23,7 +23,7 @@ public:
             Bytes recvBuf;
             if(dcc.read(recvBuf)<0) break;
             std::cout<<"from server "<<dcc.name<<" : "<<(std::string)recvBuf<<std::endl;
-            if(recvBuf=="close") break;
+            if(recvBuf=="c.") break;
         }
        dcc.close();
     }

@@ -29,6 +29,7 @@ int DnsClientChannel::open(int timeout) {
 int DnsClientChannel::authenticate(int timeout) {
     Dns dns,dnsResp;
     Packet packet,packetResp;
+    packet.sessionId=rand();
     if (Packet::authentication(dns, packet, userId.c_str(), myDomain) < 0){
         Log::printf(LOG_ERROR,"user id is too long");
         return -1;
@@ -43,9 +44,8 @@ int DnsClientChannel::authenticate(int timeout) {
         Log::printf(LOG_ERROR,"authentication failure");
         return -1;
     }
-    name=std::to_string(sessionId)+"@"+userId;
-    channelGroupId=packetResp.groupId;
     sessionId=packetResp.sessionId;
+    name=std::to_string(sessionId)+"@"+userId;
     return 1;
 }
 
@@ -53,7 +53,7 @@ void DnsClientChannel::uploading() {
     while (running.load()){
         AggregatedPacket aggregatedPacket;
         auto result=uploadBuffer.pop(aggregatedPacket);
-        if(result==POP_INVALID) break;
+        if(result==POP_INVALID || !noConnErr()) break;
         auto group = disaggregateToQueryPacketGroup(aggregatedPacket, sessionId, channelGroupId, randRecordType(),
                                                     PACKET_UPLOAD, myDomain);
         if (sendGroup(group)<0) break;
@@ -65,7 +65,7 @@ void DnsClientChannel::dispatching() {
         Packet packet;
         Dns dns;
         if (recvPacketResp(packet, dns)<0){
-            if(err.load()==DCCE_NETWORK_ERR) break;
+            if(!noConnErr()) break;
             else continue;
         }
         switch (packet.type) {
@@ -76,6 +76,14 @@ void DnsClientChannel::dispatching() {
             case PACKET_GROUP_END:
             case PACKET_DOWNLOAD_NOTHING:
                 downloadBuffer.push(std::move(packet));
+                break;
+            case PACKET_DISCARD:
+                Log::printf(LOG_TRACE,"packet discard ,group id :%u,data id :%u",packet.groupId,packet.dataId);
+                break;
+            case PACKET_SESSION_NOT_FOUND:
+            case PACKET_SESSION_CLOSED:
+                err.store(DCCE_PEER_CLOSED);
+                closeBuffers();
                 break;
             default:
                 Log::printf(LOG_ERROR,"packet with unexpected type : %s",packet.toString().c_str());
@@ -97,7 +105,7 @@ void DnsClientChannel::downloading() {
 
         Packet packetDown;
         auto result = downloadBuffer.pop(packetDown,pollTimeout);
-        if(result==POP_INVALID || err==DCCE_NETWORK_ERR) break;
+        if(result==POP_INVALID || !noConnErr()) break;
         if(result==POP_TIMEOUT || packetDown.type == PACKET_DOWNLOAD_NOTHING){
             goto DNS_POLL;
         }
@@ -125,7 +133,7 @@ int DnsClientChannel::sendGroup(const PacketGroup &group) {
         PACKET_RECV:
         Packet packetAck;
         auto result = ackBuffer.pop(packetAck,ackTimeout);
-        if(result==POP_INVALID || err==DCCE_NETWORK_ERR) break;
+        if(result==POP_INVALID || !noConnErr()) return -1;
         if(result==POP_TIMEOUT) goto DNS_SEND;
         if(!verifyPacket(packetAck,group.groupId,seg.packet.dataId)){
             goto PACKET_RECV;
@@ -135,11 +143,11 @@ int DnsClientChannel::sendGroup(const PacketGroup &group) {
 }
 
 int DnsClientChannel::sendDnsQuery(const Dns &dns) {
-    if(err.load()==DCCE_NETWORK_ERR ) return -1;
+    if(!noConnErr()) return -1;
     char buf[4096];
     ssize_t n = Dns::bytes(dns, buf, sizeof(buf));
     if (sendUdp(sockfd, buf, n)<0){
-        if(running.load())Log::printf(LOG_ERROR,getLastErrorMessage().c_str());
+        if(running.load()) Log::printf(LOG_DEBUG,getLastErrorMessage().c_str());
         err.store(DCCE_NETWORK_ERR);
         return -1;
     }
@@ -147,11 +155,11 @@ int DnsClientChannel::sendDnsQuery(const Dns &dns) {
 }
 
 int DnsClientChannel::recvPacketResp(Packet &packet, Dns &dnsResp, int timeout) {
-    if(err.load()==DCCE_NETWORK_ERR) return -1;
+    if(!noConnErr()) return -1;
     char buf[4*1024];
     auto n=recvUdp(sockfd,buf,sizeof (buf),timeout);
     if ( n<0 ){
-        if( running.load()) Log::printf(LOG_ERROR,getLastErrorMessage().c_str());
+        if( running.load()) Log::printf(LOG_DEBUG,getLastErrorMessage().c_str());
         err.store(DCCE_NETWORK_ERR);
         return -1;
     }
@@ -171,7 +179,7 @@ ssize_t DnsClientChannel::write(const void *buf, size_t len) {
         return -1;
     }
     int e=err.load();
-    if(e==DCCE_NETWORK_ERR || e==DCCE_AUTHENTICATE_ERR){
+    if(!noConnErr() || e==DCCE_AUTHENTICATE_ERR){
         return -1;
     }
     AggregatedPacket aggregatedPacket={Bytes(buf,len)};
@@ -185,7 +193,7 @@ ssize_t DnsClientChannel::read(void *dst, int timeout) {
         return -1;
     }
     int e=err.load();
-    if(e==DCCE_NETWORK_ERR || e==DCCE_AUTHENTICATE_ERR){
+    if(!noConnErr()|| e==DCCE_AUTHENTICATE_ERR){
         return -1;
     }
     AggregatedPacket packet;
@@ -200,9 +208,7 @@ ssize_t DnsClientChannel::read(void *dst, int timeout) {
 void DnsClientChannel::close() {
     if(running.load()){
         running.store(false);
-        uploadBuffer.unblock();
-        downloadBuffer.unblock();
-        inboundBuffer.unblock();
+        closeBuffers();
         closeSocket(sockfd);
         dispatchThread.join();
         uploadThread.join();
@@ -246,6 +252,17 @@ ssize_t DnsClientChannel::read(Bytes &dst, int timeout) {
     }else{
         return -1;
     }
+}
+
+void DnsClientChannel::closeBuffers() {
+    uploadBuffer.unblock();
+    downloadBuffer.unblock();
+    inboundBuffer.unblock();
+}
+
+bool DnsClientChannel::noConnErr() {
+    auto e = err.load();
+    return !(e==DCCE_NETWORK_ERR || e==DCCE_PEER_CLOSED);
 }
 
 

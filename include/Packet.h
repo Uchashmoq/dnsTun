@@ -18,7 +18,13 @@ enum packet_t {
     PACKET_AUTHENTICATION_SUCCESS,
     PACKET_AUTHENTICATION_FAILURE,
     PACKET_GROUP_END,
-    PACKET_DOWNLOAD_NOTHING
+    PACKET_DOWNLOAD_NOTHING,
+    PACKET_INVALID_TYPE,
+    PACKET_SESSION_NOT_FOUND,
+    PACKET_SESSION_CLOSED,
+    PACKET_GROUP_ID_SYN,
+    PACKET_DATA_ID_SYN,
+    PACKET_DISCARD
 };
 
 #define DATA_SEG_START 0
@@ -28,6 +34,7 @@ using group_id_t = uint16_t;
 using data_id_t = uint16_t;
 using packet_type_t=uint8_t;
 
+
 struct Packet {
     Packet():dnsTransactionId(0),sessionId(0),groupId(0),dataId(0),type(0),qr(0), source(ADDR_ZERO),dnsQueryType(TXT){}
     uint16_t dnsTransactionId;
@@ -36,6 +43,7 @@ struct Packet {
     group_id_t groupId;
     data_id_t dataId;
     packet_type_t type;
+
     uint8_t qr;
     SA_IN source;
     std::vector<Query> originalQueries;
