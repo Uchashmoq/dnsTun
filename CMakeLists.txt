@@ -9,7 +9,7 @@ file(GLOB SOURCES "src/*/*.cpp" "src/*/*.h" "src/*/*.hpp")
 add_library(dnsTun STATIC ${SOURCES} src/protocol/DnsClientChannel.cpp include/DnsClientChannel.h src/protocol/DnsServerChannel.cpp include/DnsServerChannel.h src/protocol/packetProcess.cpp src/protocol/packetProcess.h)
 
 # 添加测试可执行文件
-add_executable(dnsTunTest test/test_main.cpp test/EchoServer.hpp test/EchoClient.hpp)
+add_executable(dnsTunTest test/test_main.cpp test/EchoServer.hpp test/EchoClient.hpp test/TimeServer.hpp test/DiscardClient.h)
 
 # 链接静态库到测试可执行文件
 target_link_libraries(dnsTunTest dnsTun)
