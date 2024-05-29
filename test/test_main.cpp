@@ -24,7 +24,7 @@ void testEcho1(){
 #define SET_ARG(arg,i) if(argc>i) arg=args[i]
 
 void testEchoServer(int argc,char** args){
-    auto * serverIp="0.0.0.0",*myDom="tun.k72vb42ffx.xyz",*port="5354";
+    auto * serverIp="0.0.0.0",*myDom="tun.k72vb42ffx.xyz",*port="53";
     SET_ARG(serverIp,1);
     SET_ARG(port,2);
     SET_ARG(myDom,3);

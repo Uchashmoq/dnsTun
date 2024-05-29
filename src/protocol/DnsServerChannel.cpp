@@ -278,8 +278,12 @@ int ClientConnection::sendGroup(AggregatedPacket &aggregatedPacket) {
     vector<Packet> temp;
     while (running.load()){
         Packet packetPoll;
-        if(pollBuffer.pop(packetPoll)==POP_INVALID) return -1;
-
+        auto result=pollBuffer.pop(packetPoll,idleTimeout);
+        if(result==POP_INVALID) return -1;
+        if(result==POP_TIMEOUT){
+            handleIdle();
+            return -1;
+        }
         auto packetDownload = packetPoll.getResponsePacket(PACKET_DOWNLOAD,groupId,dataId);
         if(packetPoll.dataId==dataId){
             if(readAggregatedPacket(br,packetDownload)>0){
