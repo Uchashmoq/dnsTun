@@ -16,7 +16,7 @@ public:
     void launch(std::istream* in=&std::cin){
         using namespace std;
         ucsmq::DnsClientChannel dcc(serverAddr,myDomain.c_str(),userId.c_str());
-        assert(dcc.open()>0);
+        assert(dcc.open(3000)>0);
         while (true){
             Bytes recvBuf;
             if(dcc.read(recvBuf)<0) break;

@@ -37,6 +37,7 @@ namespace ucsmq{
             return -1;
         }
         if(recvPacketResp(packetResp, dnsResp, timeout) < 0){
+            Log::printf(LOG_ERROR,getLastErrorMessage().c_str());
             return -1;
         }
         if(packetResp.type != PACKET_AUTHENTICATION_SUCCESS){
