@@ -15,7 +15,7 @@ public:
             serverAddr(serverAddr_),myDomain(myDomain_),userId(userId_){}
     void launch(std::istream* in=&std::cin){
         using namespace std;
-        DnsClientChannel dcc(serverAddr,myDomain.c_str(),userId.c_str());
+        ucsmq::DnsClientChannel dcc(serverAddr,myDomain.c_str(),userId.c_str());
         assert(dcc.open()>0);
         while (true){
             Bytes recvBuf;

@@ -6,7 +6,7 @@ set(CMAKE_BUILD_TYPE Debug)
 include_directories(include)
 file(GLOB SOURCES "src/*/*.cpp" "src/*/*.h" "src/*/*.hpp")
 
-add_library(dnsTun STATIC ${SOURCES} src/protocol/DnsClientChannel.cpp include/DnsClientChannel.h src/protocol/DnsServerChannel.cpp include/DnsServerChannel.h src/protocol/packetProcess.cpp src/protocol/packetProcess.h)
+add_library(dnsTun STATIC ${SOURCES} )
 
 # 添加测试可执行文件
 add_executable(dnsTunTest test/test_main.cpp test/EchoServer.hpp test/EchoClient.hpp test/TimeServer.hpp test/DiscardClient.h)

@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <iostream>
+using namespace ucsmq;
 class EchoClient{
     std::string myDomain;
     std::string userId;
@@ -14,7 +15,7 @@ public:
             serverAddr(serverAddr_),myDomain(myDomain_),userId(userId_){}
    void launch(std::istream* in=&std::cin){
        using namespace std;
-        DnsClientChannel dcc(serverAddr,myDomain.c_str(),userId.c_str());
+        ucsmq::DnsClientChannel dcc(serverAddr,myDomain.c_str(),userId.c_str());
         assert(dcc.open()>0);
         while (true){
             string msg;

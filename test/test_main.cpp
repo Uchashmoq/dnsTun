@@ -6,7 +6,7 @@
 #include "TimeServer.hpp"
 
 using namespace std;
-
+using namespace ucsmq;
 
 void testEcho1(){
     auto myDom="tun.k72vb42ffx.xyz";
