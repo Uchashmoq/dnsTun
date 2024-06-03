@@ -274,7 +274,7 @@ static size_t readAggregatedPacket(BytesReader& br,Packet& packet){
 
 int ClientConnection::sendGroup(AggregatedPacket &aggregatedPacket) {
     BytesReader br(aggregatedPacket.data);
-    group_id_t groupId = connGroupId , dataId = DATA_SEG_START;
+    data_id_t dataId = DATA_SEG_START;
     vector<Packet> temp;
     while (running.load()){
         Packet packetPoll;
@@ -284,21 +284,24 @@ int ClientConnection::sendGroup(AggregatedPacket &aggregatedPacket) {
             handleIdle();
             return -1;
         }
-        auto packetDownload = packetPoll.getResponsePacket(PACKET_DOWNLOAD,groupId,dataId);
+
+        if(packetPoll.groupId!=connGroupId){
+            Log::printf(LOG_WARN,"invalid group id in packetPoll , expect :%u, get :%u",connGroupId,packetPoll.groupId);
+            if(sendPacketResp(packetPoll.getResponsePacket(PACKET_DISCARD))<0) return -1;
+        }
+
+        auto packetDownload = packetPoll.getResponsePacket(PACKET_DOWNLOAD,connGroupId,dataId);
         if(packetPoll.dataId==dataId){
-            if(readAggregatedPacket(br,packetDownload)>0){
-                if(sendPacketResp(packetDownload)<0) return -1;
-            }else{
-                if(sendPacketResp(packetDownload)<0) return -1;
-                else return 1;
-            }
+            auto n =  readAggregatedPacket(br,packetDownload);
+            if(sendPacketResp(packetDownload)<0) return -1;
+            if(n==0) return 1;
             temp.push_back(std::move(packetDownload));
             dataId++;
         }else if(packetPoll.dataId<dataId){
             if(sendPacketResp(temp[packetPoll.dataId])<0) return -1;
         }else{
             Log::printf(LOG_WARN,"advanced data id in packetPoll : %u",packetPoll.dataId);
-            return 2;
+            if(sendPacketResp(packetPoll.getResponsePacket(PACKET_DISCARD))<0) return -1;
         }
     }
     return -1;

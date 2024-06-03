@@ -44,7 +44,7 @@ void testEchoClient(){
 void testDiscardClient(){
     auto myDom="tun.k72vb42ffx.xyz";
     //auto addr= inetAddr("192.168.88.128",5354);
-    auto addr= inetAddr("114.114.114.114",53);
+   auto addr= inetAddr("114.114.114.114",53);
     auto userId = "test_user";
     DiscardClient client(addr,myDom,userId);
     client.launch();
@@ -66,6 +66,6 @@ int main(int argc,char** args){
     //testEcho1();
     //testEchoServer(argc,args);
     //testEchoClient();
-    //testDiscardClient();
-    testTimeServer(argc,args);
+    testDiscardClient();
+    //testTimeServer(argc,args);
 }
