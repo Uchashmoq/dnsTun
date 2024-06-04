@@ -312,7 +312,7 @@ namespace ucsmq{
             if(packetPoll.dataId==dataId){
                 auto packetDownload = packetPoll.getResponsePacket(PACKET_DOWNLOAD);
                 auto n =  readAggregatedPacket(br,packetDownload);
-                printf("down %u,%u\n",packetDownload.groupId,packetDownload.dataId);
+                printf("down %u,%u,%s,n=%zu\n",packetDownload.groupId,packetDownload.dataId, packetTypeName(packetDownload.type),n);
                 if(sendPacketResp(packetDownload)<0) return -1;
                 if(temp.empty() || temp.back().dataId!= packetDownload.dataId){
                     temp.push_back(std::move(packetDownload));
@@ -437,7 +437,7 @@ namespace ucsmq{
                 for(const auto& packet : pa.second){
                     if(packet.dataId==packetPoll.dataId){
                          packetResp.data=packet.data;
-                         packetResp.type=PACKET_DOWNLOAD;
+                         packetResp.type=packet.type;
                     }
                 }
             }
