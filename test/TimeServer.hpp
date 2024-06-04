@@ -11,11 +11,14 @@
 #include <iostream>
 class TimeServer{
     void serve(ClientConnectionPtr conn){
+        int cnt=0;
         while (true) {
             time_t currentTime = time(nullptr);
             tm localTime = *localtime(&currentTime);
-            char time[256];
+            char time[256],idx[50];
             strftime(time, sizeof(time), "TimeServer : %Y-%m-%d %H:%M:%S", &localTime);
+            sprintf(idx,"index : %d",cnt++);
+            strcat(time,idx);
             std::this_thread::sleep_for(std::chrono::milliseconds(d));
             if (conn->write(time, strlen(time))<0) break;
         }
