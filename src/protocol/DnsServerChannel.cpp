@@ -4,7 +4,20 @@
 #include <functional>
 #include "packetProcess.h"
 using namespace std;
+
+
+
 namespace ucsmq{
+
+    static string lookupPreviousPacket(const std::list<std::pair<group_id_t,std::vector<Packet>>>& groups){
+        stringstream ss;
+        for(const auto& pa : groups){
+            const auto& v =pa.second;
+            ss<<pa.first<<" : {"<< v.front().dataId << " ~ "<<v.back().dataId <<"}"<<endl;
+        }
+        return ss.str();
+    }
+
     int DnsServerChannel::recvPacketQuery(Packet &packet, Dns &dns) {
         if(!running.load() || err.load() == DSCE_NETWORK_ERR) return -1;
         char buf[6*1024];
@@ -290,7 +303,7 @@ namespace ucsmq{
                 handleIdle();
                 return -1;
             }
-
+            printf("poll %u,%u , conn %u,%u\n",packetPoll.groupId,packetPoll.dataId,connGroupId,dataId);
             if(packetPoll.groupId!=connGroupId){
                 if(downloadPreviousPacket(packetPoll)<0) return -1;
                 continue;
@@ -299,14 +312,18 @@ namespace ucsmq{
             if(packetPoll.dataId==dataId){
                 auto packetDownload = packetPoll.getResponsePacket(PACKET_DOWNLOAD);
                 auto n =  readAggregatedPacket(br,packetDownload);
+                printf("down %u,%u,%s,n=%zu\n",packetDownload.groupId,packetDownload.dataId, packetTypeName(packetDownload.type),n);
                 if(sendPacketResp(packetDownload)<0) return -1;
-                temp.push_back(std::move(packetDownload));
+                if(temp.empty() || temp.back().dataId!= packetDownload.dataId){
+                    temp.push_back(std::move(packetDownload));
+                }
                 dataId++;
                 if(n==0) {
                     addDownloadedPackets(connGroupId,temp);
                     return 1;
                 }
             }else if(packetPoll.dataId<dataId){
+                printf("down1 %u,%u\n",connGroupId,packetPoll.dataId);
                 if(sendPacketResp(temp[packetPoll.dataId])<0) return -1;
             }else{
                 Log::printf(LOG_WARN,"advanced data id in packetPoll : %u",packetPoll.dataId);
@@ -412,6 +429,7 @@ namespace ucsmq{
         downloadedPackets.push_back(make_pair(groupId,std::move(packets)));
     }
 
+
     int ClientConnection::downloadPreviousPacket(const Packet &packetPoll) {
         auto packetResp = packetPoll.getResponsePacket(PACKET_DISCARD);
         for(const auto& pa : downloadedPackets){
@@ -419,13 +437,14 @@ namespace ucsmq{
                 for(const auto& packet : pa.second){
                     if(packet.dataId==packetPoll.dataId){
                          packetResp.data=packet.data;
-                         packetResp.type=PACKET_DOWNLOAD;
+                         packetResp.type=packet.type;
                     }
                 }
             }
         }
         if(packetResp.type==PACKET_DISCARD){
-            Log::printf(LOG_WARN,"can not find previous packet , group id : %u,data id : %u , expected group id :",packetPoll.groupId,packetPoll.dataId,connGroupId);
+            Log::printf(LOG_WARN,"can not find previous packet , group id : %u,data id : %u , current group id %u:\n previous packets storage : \n %s",packetPoll.groupId,packetPoll.dataId,connGroupId,
+                        lookupPreviousPacket(downloadedPackets).c_str());
         }else{
             Log::printf(LOG_DEBUG,"send previous packet , group id : %u,data id : %u ",packetPoll.groupId,packetPoll.dataId);
         }
