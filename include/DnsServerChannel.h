@@ -28,6 +28,7 @@ namespace ucsmq{
 
 #define MAX_RESPONSE_DATA_LEN 85
 #define DEFAULT_CLIENT_IDLE_TIMEOUT 5
+#define DEFAULT_DOWNLOADED_PACKETS_STORAGE_LIMIT 3
     class ClientConnection{
         friend class DnsServerChannel;
         int sockfd;
@@ -43,19 +44,27 @@ namespace ucsmq{
         std::thread uploadThread;
         std::thread downloadThread;
         group_id_t connGroupId;
+
+        std::list<std::pair<group_id_t,std::vector<Packet>>> downloadedPackets;
+
+        void addDownloadedPackets(group_id_t groupId ,std::vector<Packet>& packets);
+        int downloadPreviousPacket(const Packet& packetPoll);
         void stop();
         void uploading();
         void downloading();
         int sendPacketResp(const Packet& packet);
-        int sendGroup(AggregatedPacket &aggregatedPacket);
+        int sendGroup(const AggregatedPacket &aggregatedPacket);
     public:
+        size_t downloadedPacketsStorageLimit;
         const User user;
         std::string name;
         int idleTimeout;
         void close();
         void open();
         ClientConnection(int sockfd_,session_id_t sessionId_,const User& user_,const std::shared_ptr<ConnectionManager>& manager_,std::atomic<int>* err_):
-                sockfd(sockfd_), sessionId(sessionId_),user(user_),manager(manager_),err(err_),connGroupId(0),idleTimeout(DEFAULT_CLIENT_IDLE_TIMEOUT){
+                sockfd(sockfd_), sessionId(sessionId_),user(user_),manager(manager_),err(err_),connGroupId(0),idleTimeout(DEFAULT_CLIENT_IDLE_TIMEOUT),
+                downloadedPacketsStorageLimit(DEFAULT_DOWNLOADED_PACKETS_STORAGE_LIMIT)
+                {
             connErr.store(CCE_NULL);
             running.store(false);
         }

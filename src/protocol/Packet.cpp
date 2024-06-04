@@ -193,7 +193,13 @@ namespace ucsmq{
     }
 
     record_t randRecordType(){
+#if 1
+        const static record_t t[]={TXT};
+        const static auto n = sizeof(t)/sizeof(t[0]);
+         return  t[::rand()%n];
+#else
         return TXT;
+#endif
     }
 
     static Query writeToQuery(Readable& br ,record_t qType,const vector<Bytes>& domain,uint8_t cnt){

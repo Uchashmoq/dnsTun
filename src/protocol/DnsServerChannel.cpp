@@ -237,6 +237,11 @@ namespace ucsmq{
                 break;
             }
 
+            if(packetPoll.groupId!=connGroupId){
+                if(downloadPreviousPacket(packetPoll)<0) break;
+                continue;
+            }
+
             if(downloadBuffer.size()==0){
                 auto packetResp = packetPoll.getResponsePacket(PACKET_DOWNLOAD_NOTHING);
                 if (sendPacketResp(packetResp)<0) break;
@@ -273,7 +278,7 @@ namespace ucsmq{
         return packet.data.size;
     }
 
-    int ClientConnection::sendGroup(AggregatedPacket &aggregatedPacket) {
+    int ClientConnection::sendGroup(const AggregatedPacket &aggregatedPacket) {
         BytesReader br(aggregatedPacket.data);
         data_id_t dataId = DATA_SEG_START;
         vector<Packet> temp;
@@ -287,17 +292,20 @@ namespace ucsmq{
             }
 
             if(packetPoll.groupId!=connGroupId){
-                Log::printf(LOG_WARN,"invalid group id in packetPoll , expect :%u, get :%u",connGroupId,packetPoll.groupId);
-                if(sendPacketResp(packetPoll.getResponsePacket(PACKET_DISCARD))<0) return -1;
+                if(downloadPreviousPacket(packetPoll)<0) return -1;
+                continue;
             }
 
-            auto packetDownload = packetPoll.getResponsePacket(PACKET_DOWNLOAD,connGroupId,dataId);
             if(packetPoll.dataId==dataId){
+                auto packetDownload = packetPoll.getResponsePacket(PACKET_DOWNLOAD);
                 auto n =  readAggregatedPacket(br,packetDownload);
                 if(sendPacketResp(packetDownload)<0) return -1;
-                if(n==0) return 1;
                 temp.push_back(std::move(packetDownload));
                 dataId++;
+                if(n==0) {
+                    addDownloadedPackets(connGroupId,temp);
+                    return 1;
+                }
             }else if(packetPoll.dataId<dataId){
                 if(sendPacketResp(temp[packetPoll.dataId])<0) return -1;
             }else{
@@ -395,5 +403,32 @@ namespace ucsmq{
 
     bool ClientConnection::noConnErr() {
         return !(err->load()==DSCE_NETWORK_ERR || connErr.load()==CCE_IDLE);
+    }
+
+    void ClientConnection::addDownloadedPackets(group_id_t groupId, vector <Packet> &packets) {
+        if (downloadedPackets.size()>=downloadedPacketsStorageLimit){
+            downloadedPackets.pop_front();
+        }
+        downloadedPackets.push_back(make_pair(groupId,std::move(packets)));
+    }
+
+    int ClientConnection::downloadPreviousPacket(const Packet &packetPoll) {
+        auto packetResp = packetPoll.getResponsePacket(PACKET_DISCARD);
+        for(const auto& pa : downloadedPackets){
+            if(pa.first==packetPoll.groupId){
+                for(const auto& packet : pa.second){
+                    if(packet.dataId==packetPoll.dataId){
+                         packetResp.data=packet.data;
+                         packetResp.type=PACKET_DOWNLOAD;
+                    }
+                }
+            }
+        }
+        if(packetResp.type==PACKET_DISCARD){
+            Log::printf(LOG_WARN,"can not find previous packet , group id : %u,data id : %u , expected group id :",packetPoll.groupId,packetPoll.dataId,connGroupId);
+        }else{
+            Log::printf(LOG_DEBUG,"send previous packet , group id : %u,data id : %u ",packetPoll.groupId,packetPoll.dataId);
+        }
+        return sendPacketResp(packetResp);
     }
 }
