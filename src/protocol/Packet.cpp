@@ -194,7 +194,7 @@ namespace ucsmq{
 
     record_t randRecordType(){
 #if 1
-        const static record_t t[]={TXT};
+        const static record_t t[]={TXT,CNAME,PTR};
         const static auto n = sizeof(t)/sizeof(t[0]);
          return  t[::rand()%n];
 #else
@@ -449,6 +449,7 @@ namespace ucsmq{
         packet.groupId=groupId;
         packet.dataId=dataId;
         packet.type=PACKET_POLL;
+        packet.dnsQueryType=randRecordType();
         packet.data=std::to_string((short)rand());
         Packet::packetToDnsQuery(dns,::rand(),packet,myDomain);
     }
