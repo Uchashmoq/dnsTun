@@ -27,6 +27,9 @@ namespace ucsmq{
         PACKET_DISCARD
     };
 
+    const char* packetTypeName(int packet);
+
+
 #define DATA_SEG_START 0
 
     using session_id_t = uint16_t;

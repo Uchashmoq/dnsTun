@@ -394,7 +394,7 @@ namespace ucsmq{
         ss<<"sessionId: "<<sessionId<<endl;
         ss<<"groupId: "<<groupId<<endl;
         ss<<"dataId: "<<dataId<<endl;
-        ss<<"type: "<<(int)type<<endl;
+        ss<<"type: "<<packetTypeName(type)<<endl;
         if(originalQueries.size()>0){
             cout<<"original queries from "<<sockaddr_inStr(source)<<": "<<endl;
             for(const auto & q : originalQueries){
@@ -495,6 +495,46 @@ namespace ucsmq{
         group.segments.emplace_back(std::move(endDns),std::move(endPacket));
         group.groupId=groupId;
         return std::move(group);
+    }
+
+    const char* packetTypeName(int packet) {
+        switch (packet) {
+            case PACKET_PING:
+                return "PACKET_PING";
+            case PACKET_UPLOAD:
+                return "PACKET_UPLOAD";
+            case PACKET_AUTHENTICATE:
+                return "PACKET_AUTHENTICATE";
+            case PACKET_ACK:
+                return "PACKET_ACK";
+            case PACKET_DOWNLOAD:
+                return "PACKET_DOWNLOAD";
+            case PACKET_POLL:
+                return "PACKET_POLL";
+            case PACKET_AUTHENTICATION_SUCCESS:
+                return "PACKET_AUTHENTICATION_SUCCESS";
+            case PACKET_AUTHENTICATION_FAILURE:
+                return "PACKET_AUTHENTICATION_FAILURE";
+            case PACKET_GROUP_END:
+                return "PACKET_GROUP_END";
+            case PACKET_DOWNLOAD_NOTHING:
+                return "PACKET_DOWNLOAD_NOTHING";
+            case PACKET_INVALID_TYPE:
+                return "PACKET_INVALID_TYPE";
+            case PACKET_SESSION_NOT_FOUND:
+                return "PACKET_SESSION_NOT_FOUND";
+            case PACKET_SESSION_CLOSED:
+                return "PACKET_SESSION_CLOSED";
+            case PACKET_GROUP_ID_SYN:
+                return "PACKET_GROUP_ID_SYN";
+            case PACKET_DATA_ID_SYN:
+                return "PACKET_DATA_ID_SYN";
+            case PACKET_DISCARD:
+                return "PACKET_DISCARD";
+            default:
+                return "UNKNOWN_PACKET_TYPE";
+        }
+
     }
 }
 

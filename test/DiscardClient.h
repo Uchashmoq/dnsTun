@@ -20,7 +20,7 @@ public:
         while (true){
             Bytes recvBuf;
             if(dcc.read(recvBuf)<0) break;
-            std::cout<<"from server "<<dcc.name<<" : "<<(std::string)recvBuf<<std::endl;
+           // std::cout<<"from server "<<dcc.name<<" : "<<(std::string)recvBuf<<std::endl;
             if(recvBuf=="c.") break;
         }
         dcc.close();
