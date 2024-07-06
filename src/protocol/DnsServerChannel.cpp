@@ -303,7 +303,7 @@ namespace ucsmq{
                 handleIdle();
                 return -1;
             }
-            printf("poll %u,%u , conn %u,%u\n",packetPoll.groupId,packetPoll.dataId,connGroupId,dataId);
+            //printf("poll %u,%u , conn %u,%u\n",packetPoll.groupId,packetPoll.dataId,connGroupId,dataId);
             if(packetPoll.groupId!=connGroupId){
                 if(downloadPreviousPacket(packetPoll)<0) return -1;
                 continue;
@@ -323,7 +323,7 @@ namespace ucsmq{
                     return 1;
                 }
             }else if(packetPoll.dataId<dataId){
-                printf("down1 %u,%u\n",connGroupId,packetPoll.dataId);
+                //printf("down1 %u,%u\n",connGroupId,packetPoll.dataId);
                 if(sendPacketResp(temp[packetPoll.dataId])<0) return -1;
             }else{
                 Log::printf(LOG_WARN,"advanced data id in packetPoll : %u",packetPoll.dataId);

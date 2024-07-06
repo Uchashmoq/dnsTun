@@ -99,7 +99,7 @@ namespace ucsmq{
             DNS_POLL:
             Dns dnsPoll; Packet packetPoll;
             Packet::poll(dnsPoll, packetPoll, myDomain, sessionId, groupId, dataId);
-   printf("poll %u,%u\n",packetPoll.groupId,packetPoll.dataId);
+  // printf("poll %u,%u\n",packetPoll.groupId,packetPoll.dataId);
             if (sendDnsQuery(dnsPoll)<0){
                 break;
             }
@@ -112,15 +112,15 @@ namespace ucsmq{
                 goto DNS_POLL;
             }
 
-    printf("down %u,%u,%s  ,  client %u,%u\n",packetDown.groupId,packetDown.dataId, packetTypeName(packetDown.type),groupId,dataId);
+   // printf("down %u,%u,%s  ,  client %u,%u\n",packetDown.groupId,packetDown.dataId, packetTypeName(packetDown.type),groupId,dataId);
             if(packetDown.dataId==DATA_SEG_START){
                 newPacketGroup(groupId, dataId, packetDown, packets);
             }else if(packetDown.type==PACKET_GROUP_END){
-    printf("export\n");
+   // printf("export\n");
                 exportPackets(inboundBuffer,packets,groupId,dataId);
                 groupId++;
             }else{
-   ::printf("add %u,%u\n",groupId,dataId);
+   //::printf("add %u,%u\n",groupId,dataId);
                 packetGroupAdd(groupId, dataId, packetDown, packets);
             }
         }
