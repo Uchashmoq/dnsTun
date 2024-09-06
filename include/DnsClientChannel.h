@@ -59,7 +59,6 @@ namespace ucsmq{
         ssize_t read(void *dst, int timeout=0);
         ssize_t read(Bytes& dst,int timeout=0);
         ssize_t write(const Bytes& src);
-
         bool noConnErr();
     };
 }

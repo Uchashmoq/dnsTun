@@ -29,7 +29,7 @@ namespace ucsmq{
 #define MAX_RESPONSE_DATA_LEN 85
 #define DEFAULT_CLIENT_IDLE_TIMEOUT 5
 #define DEFAULT_DOWNLOADED_PACKETS_STORAGE_LIMIT 3
-    class ClientConnection{
+    class ClientConnection {
         friend class DnsServerChannel;
         int sockfd;
         session_id_t sessionId;

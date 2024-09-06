@@ -6,10 +6,10 @@ set(CMAKE_BUILD_TYPE Debug)
 include_directories(include)
 file(GLOB SOURCES "src/*/*.cpp" "src/*/*.h" "src/*/*.hpp")
 
-add_library(dnsTun STATIC ${SOURCES} src/lib/aes.c)
+add_library(dnsTun STATIC ${SOURCES} src/lib/aes.cpp)
 
 # 添加测试可执行文件
-add_executable(dnsTunTest test/test_main.cpp test/EchoServer.hpp test/EchoClient.hpp test/TimeServer.hpp test/DiscardClient.h)
+add_executable(dnsTunTest test/test_main.cpp test/EchoServer.hpp test/EchoClient.hpp test/TimeServer.hpp test/DiscardClient.h test/testDns.cpp test/testDns.h)
 
 # 链接静态库到测试可执行文件
 target_link_libraries(dnsTunTest dnsTun)

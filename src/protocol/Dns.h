@@ -81,6 +81,7 @@ namespace ucsmq{
         Query():queryType(ANY),queryClass(1){}
         std::string toString() const;
     };
+
     struct Answer {
         std::vector<Bytes> name;
         uint16_t ansType;
@@ -91,6 +92,7 @@ namespace ucsmq{
         Answer() : ansType(ANY) , ansClass(1) ,dataLen (0){}
         std::string toString() const;
     };
+
     struct Nameserver {
         std::vector<Bytes> name;
         uint16_t nsType;
@@ -113,9 +115,9 @@ namespace ucsmq{
     };
     struct Dns {
         Dns() : transactionId(0),flags(0),questions(0),answerRRs(0),authorityRRs(0),additionalRRs(0), source(ADDR_ZERO){}
-        //Convert binary data to dns structure
+        //解析dns
         static ssize_t resolve(Dns& dns,const void *buf, size_t size);
-        //Convert dns structure to binary data
+        //序列化dns
         static ssize_t bytes(const Dns& dns,void* buf,size_t size);
         void getFlags (int *pQR, int *pOPCODE, int *pAA, int *pTC, int *pRD, int *pRA,int* pZ, int *pRCODE) const ;
         Dns &setFlag(int flag, int value);

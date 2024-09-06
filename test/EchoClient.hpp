@@ -23,7 +23,7 @@ public:
             if(dcc.write(msg.c_str(),msg.size())<0) break;
             Bytes recvBuf;
             if(dcc.read(recvBuf)<0) break;
-            //std::cout<<"from server "<<dcc.name<<" : "<<(std::string)recvBuf<<std::endl;
+            std::cout<<"from server "<<dcc.name<<" : "<<(std::string)recvBuf<<std::endl;
             if(recvBuf=="c.") break;
         }
        dcc.close();

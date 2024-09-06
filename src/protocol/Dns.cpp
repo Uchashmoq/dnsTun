@@ -54,6 +54,7 @@ namespace ucsmq{
         uint8_t len;
         if(*p==0) return 1;
         if(end-p< sizeof(offset)) throw DNSResolutionException("resolve dns exception : locate domain pointer error");
+        //判断是否是域名指针，如果是，获取偏移
         if(isDomainPointer(p,&offset)){
             readLabeledData(labeledData, (uint8_t *) start + offset, start, end, expand);
             return 2;
@@ -82,6 +83,7 @@ namespace ucsmq{
         if(expand!= nullptr) *expand+=skip-((p==end)&skip);
         return p-p0+skip-((p==end)&skip);
     }
+
     static uint8_t * readField(void* dst,uint8_t* p ,size_t size ,uint8_t *end){
         if(end-p<size) throw DNSResolutionException("resolve dns exception : read field error");
         memcpy(dst,p,size);
@@ -113,7 +115,6 @@ namespace ucsmq{
     Dns& Dns::setFlag(int mask,int value){
 #define GET_SHIFT(m) case m ## _MASK : \
     shift = m ## _SHIFT;break
-
         uint16_t shift;
         switch (mask) {
             GET_SHIFT(QR);
@@ -134,9 +135,10 @@ namespace ucsmq{
  * Parses the dns data into a dns structure and returns a negative number if it fails.
  * */
     ssize_t Dns::resolve(Dns &dns, const void *buf, size_t size) {
-        uint8_t * p=(uint8_t *)buf;
-        uint8_t * end = p+size;
+        uint8_t * p=(uint8_t *)buf;//数据开头
+        uint8_t * end = p+size;//数据末尾
         try{
+            //读取整数字段,并将指针p后移
             p =  readField(&dns.transactionId , p , sizeof(transactionId) ,end);
             p =  readField(&dns.flags , p , sizeof(flags) ,end);
             p =  readField(&dns.questions , p , sizeof(questions) ,end);
@@ -146,6 +148,7 @@ namespace ucsmq{
 
             for(uint16_t i=0;i<dns.questions;i++){
                 Query q;
+                //读取带标签的数据，并将p后移
                 p+= readLabeledData(q.question, p, buf, end, nullptr);
                 p = readField(&q.queryType,p, sizeof(q.queryType),end);
                 p= readField(&q.queryClass,p, sizeof(q.queryClass),end);
@@ -326,7 +329,8 @@ namespace ucsmq{
                 if(add.addType==MX){
                     bw.writeBytes(add.data.front());
                 }
-                writeLabeledData(bw,add.data.begin()+(add.addType==MX),add.data.end(), DATA_SHOULD_APPEND0(add.addType),cmap);
+                writeLabeledData(bw,add.data.begin()+(add.addType==MX)
+                                 ,add.data.end(), DATA_SHOULD_APPEND0(add.addType),cmap);
             }else{
                 bw.writeBytes(add.data.front());
             }

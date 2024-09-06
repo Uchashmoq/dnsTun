@@ -4,6 +4,7 @@
 #include "EchoServer.hpp"
 #include "DiscardClient.h"
 #include "TimeServer.hpp"
+#include "testDns.h"
 
 #define ALIYUN "tun.k72vb42ffx.xyz"
 
@@ -55,7 +56,7 @@ void testEchoClient(){
     EchoClient client(addr,myDom,userId);
 #if 1
     stringstream ss;
-    initSS(ss,'a',20000,5);
+    initSS(ss,'a',2048,3);
     client.launch(&ss);
 #else
     client.launch();
@@ -64,8 +65,8 @@ void testEchoClient(){
 
 void testDiscardClient(){
     auto myDom=ALIYUN;
-    //auto addr= inetAddr("192.168.88.128",5354);
-    auto addr= inetAddr("114.114.114.114",53);
+    auto addr= inetAddr("192.168.88.128",5354);
+    //auto addr= inetAddr("114.114.114.114",53);
     auto userId = "test_user";
     DiscardClient client(addr,myDom,userId);
     client.launch();
@@ -86,7 +87,8 @@ int main(int argc,char** args){
     ::srand(::time(NULL));
     //testEcho1();
     //testEchoServer(argc,args);
-    testEchoClient();
+    //testEchoClient();
     //testDiscardClient();
    // testTimeServer(argc,args);
+   testDns();
 }

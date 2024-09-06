@@ -282,6 +282,7 @@ namespace ucsmq{
         }
     };
 
+    //连接多个BytesReader
     class MultiBytesReader : public Readable {
         std::vector<BytesReader*> pReaders;
         size_t curReader;
