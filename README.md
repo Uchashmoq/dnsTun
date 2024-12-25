@@ -68,7 +68,7 @@ void server(){
             conn->write(resp,strlen(resp));
             //optional
             conn->close();
-        }
+        };
         std::thread th(f);
         th.detach();
     }
