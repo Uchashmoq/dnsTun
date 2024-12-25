@@ -139,6 +139,7 @@ namespace ucsmq{
     void DnsServerChannel::close() {
         if(running.load()){
             running.store(false);
+            closeSocket(sockfd);
             dispatchThread.join();
         }
     }

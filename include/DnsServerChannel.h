@@ -54,6 +54,8 @@ namespace ucsmq{
         void downloading();
         int sendPacketResp(const Packet& packet);
         int sendGroup(const AggregatedPacket &aggregatedPacket);
+        void handleIdle();
+        void closeBuffer();
     public:
         size_t downloadedPacketsStorageLimit;
         const User user;
@@ -74,8 +76,7 @@ namespace ucsmq{
         ssize_t write(const void* src,size_t len);
         ssize_t read(Bytes& dst,int timeout=0);
         ssize_t write(const Bytes& src);
-        void handleIdle();
-        void closeBuffer();
+        
     };
 
     using ClientConnectionPtr = std::shared_ptr<ClientConnection>;
