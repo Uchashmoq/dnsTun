@@ -8,7 +8,7 @@ set(CMAKE_BUILD_TYPE Debug)
 include_directories(${CMAKE_SOURCE_DIR}/../include)
 
 # 添加测试可执行文件
-add_executable(dnsTunTest test_main.cpp)
+add_executable(dnsTunTest test_main.cpp test2.cpp)
 
 # 链接静态库
 target_link_libraries(dnsTunTest dnsTun)
